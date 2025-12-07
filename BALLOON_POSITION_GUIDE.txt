@@ -1,0 +1,75 @@
+# 하루(캐릭터) 말풍선 위치 조정 가이드
+
+이 문서는 메인 화면(HomeScreen)에서 AI 캐릭터 '하루'의 말풍선 위치를 조정하는 방법을 안내합니다. 말풍선은 절대 위치(`position: 'absolute'`)로 배치되어 있으므로, `top`, `bottom`, `left`, `right` 등의 스타일 속성 값을 변경하여 위치를 조절할 수 있습니다.
+
+---
+
+## 1. 말풍선 관련 컴포넌트 및 스타일 위치
+
+-   **파일 경로**: `src/screens/HomeScreen.tsx`
+-   **관련 컴포넌트**: `HomeScreen` 컴포넌트의 JSX 내에서 `lastBotMessage`를 렌더링하는 `botBubble` `View` 컴포넌트.
+-   **관련 스타일**: `styles.botBubble` (HomeScreen.tsx 파일 내 `StyleSheet.create` 객체에 정의되어 있습니다.)
+
+```typescript
+// src/screens/HomeScreen.tsx (styles 객체 내)
+const styles = StyleSheet.create({
+  // ...
+  botBubble: {
+    backgroundColor: COLORS.white,
+    padding: 15,
+    borderRadius: 20,
+    borderBottomLeftRadius: 4,
+    maxWidth: width * 0.4,
+    position: 'absolute',
+    bottom: height * 0.5 - 10, // 이 값을 조절하여 위아래 위치를 변경합니다.
+    left: width * 0.5 - 120,   // 이 값을 조절하여 좌우 위치를 변경합니다.
+    zIndex: 5,
+  },
+  // ...
+});
+```
+
+## 2. 말풍선 위치 조정 방법
+
+`styles.botBubble` 내의 `bottom`과 `left` (또는 `top`, `right`, `marginTop`, `marginLeft` 등) 값을 변경하여 말풍선의 위치를 조절할 수 있습니다.
+
+-   **`bottom` 값 조정**:
+    -   값을 **줄이면** 말풍선이 화면 **아래쪽으로 이동**합니다.
+    -   값을 **늘리면** 말풍선이 화면 **위쪽으로 이동**합니다.
+    -   현재 `height * 0.5 - 10`은 대략 화면 중앙보다 약간 위쪽에 캐릭터 이미지(하단 기준)의 상단에 맞춰져 있습니다.
+
+-   **`left` 값 조정**:
+    -   값을 **줄이면** 말풍선이 화면 **왼쪽으로 이동**합니다.
+    -   값을 **늘리면** 말풍선이 화면 **오른쪽으로 이동**합니다.
+    -   현재 `width * 0.5 - 120`은 대략 화면 중앙에서 캐릭터 이미지의 오른쪽에 위치하도록 계산된 값입니다. (캐릭터가 중앙에 있고, 캐릭터의 너비를 고려한 계산)
+
+### 예시 값 (가로 모드 기준)
+
+-   **캐릭터 왼쪽 위에 위치시키고 싶을 때**:
+    ```typescript
+    botBubble: {
+      // ...
+      bottom: height * 0.5 + 50, // 캐릭터 상단 기준 더 위로
+      left: width * 0.5 - 200,   // 화면 중앙에서 캐릭터 왼쪽으로
+    },
+    ```
+
+-   **캐릭터 오른쪽 아래에 위치시키고 싶을 때**:
+    ```typescript
+    botBubble: {
+      // ...
+      bottom: height * 0.4 - 50, // 캐릭터 하단 기준 더 아래로
+      left: width * 0.5 + 50,    // 화면 중앙에서 캐릭터 오른쪽으로
+    },
+    ```
+
+-   **중앙에 좀 더 가깝게 (캐릭터 옆)**:
+    ```typescript
+    botBubble: {
+      // ...
+      bottom: height * 0.45,
+      left: width * 0.5 - 50,
+    },
+    ```
+
+**팁**: 값을 조금씩 변경해가면서 앱 화면에서 실시간으로 어떻게 바뀌는지 확인하는 것이 가장 좋습니다. `Metro Bundler`가 실행 중이라면 파일을 저장하는 즉시 앱 화면에 반영됩니다.

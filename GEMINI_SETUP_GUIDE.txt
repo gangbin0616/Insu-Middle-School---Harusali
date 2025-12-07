@@ -1,0 +1,77 @@
+# Gemini API 설정 가이드 (HarusaliMVP)
+
+이 문서는 '하루살이' MVP 프로젝트의 AI 채팅 기능에 필요한 Google Gemini API 설정 방법을 안내합니다.
+
+## 1. API 호출 파일 위치
+
+-   **파일 경로**: `src/api/gemini.ts`
+-   **역할**: 이 파일은 Gemini API와 통신하는 모든 로직을 포함하고 있습니다.
+-   **주요 함수**:
+    -   `getGeminiResponse(userMessage: string): Promise<string>`
+    -   **파라미터**: `userMessage` (사용자가 입력한 텍스트 메시지)
+    -   **반환값**: AI 캐릭터 '하루'가 생성한 응답 텍스트를 담은 `Promise` 객체.
+
+## 2. API 키 설정 방법
+
+본 프로젝트는 실제 API 호출 로직이 포함되어 있으나, API 키가 제공되지 않으면 목업(mock) 데이터로 응답합니다. 실제 AI 응답을 받으려면 아래 절차에 따라 API 키를 설정해야 합니다.
+
+1.  **Google AI Studio** ([https://aistudio.google.com/](https://aistudio.google.com/))에 방문하여 API 키를 발급받습니다.
+2.  프로젝트의 `src/api/` 폴더 아래에 `config.ts` 라는 새 파일을 생성합니다.
+3.  생성한 파일에 아래 코드를 추가하고, `YOUR_GEMINI_API_KEY_HERE` 부분을 발급받은 자신의 API 키로 교체합니다.
+
+    ```typescript
+    // src/api/config.ts
+    export const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+    ```
+
+4.  `src/api/gemini.ts` 파일을 열어 다음 두 부분을 수정합니다.
+    -   파일 상단의 `const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';` 라인을 **주석 처리하거나 삭제**합니다.
+    -   바로 아래에 주석 처리된 `// import { GEMINI_API_KEY } from './config';` 라인의 **주석을 해제**하여 `config.ts` 파일에서 키를 가져오도록 합니다.
+
+5.  마지막으로, `src/api/gemini.ts` 파일 내 `getGeminiResponse` 함수에서 **"MOCK RESPONSE FOR MVP"** 라고 표시된 섹션을 주석 처리하고, 그 위에 있는 **"REAL API CALL LOGIC"** 섹션의 주석을 해제합니다.
+
+    ```typescript
+    // src/api/gemini.ts
+
+    export const getGeminiResponse = async (
+      userMessage: string,
+    ): Promise<string> => {
+
+      // --- REAL API CALL LOGIC (주석 해제) ---
+      /*  <-- 이 부분을
+      if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+        // ...
+      }
+      // ...
+      */ // <-- 여기까지 주석을 제거
+
+      // --- MOCK RESPONSE FOR MVP (주석 처리) ---
+      /*  <-- 여기에 주석 추가
+      console.log(`Sending to mock API: ${userMessage}`);
+      return new Promise(resolve => {
+        // ...
+      });
+      */ // <-- 여기까지 주석 추가
+    };
+    ```
+
+## 3. 사용 모델 및 API 호출 정보
+
+-   **사용 모델**: `gemini-pro`
+    -   텍스트 기반의 대화형 응답에 최적화된 모델입니다.
+-   **API Endpoint URL**:
+    -   `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=YOUR_API_KEY`
+-   **캐릭터 페르소나 (Persona)**:
+    -   API 요청 시, AI가 '하루'라는 캐릭터를 연기하도록 다음과 같은 프롬프트를 함께 전송하여 역할을 부여합니다.
+    -   `"너는 무기력한 청소년을 부드럽게 도와주는 캐릭터 ‘하루’야. 너의 이름은 하루(Haru)야. 공격적이거나 부정적인 말은 피하고, 항상 짧고 다정하게, 반말로 답해 줘. 사용자가 어떤 말을 하든, 너는 그들의 감정을 공감하고 지지해주는 따뜻한 친구야."`
+
+## 4. 에러 처리
+
+-   **API 키가 없거나 잘못된 경우**:
+    -   `getGeminiResponse` 함수는 "API 키가 설정되지 않았어요..." 라는 안내 메시지를 반환합니다. (실제 API 호출 로직 활성화 시)
+-   **네트워크 에러 발생 시**:
+    -   API 호출 중 문제가 발생하면 `catch` 블록에서 에러를 감지하고, "미안, 지금은 연결이 어려운 것 같아..." 라는 기본 안내 문구를 반환하여 앱이 중단되지 않도록 처리합니다.
+
+---
+
+위 절차를 완료하고 `npm install` 및 `npx expo start`를 실행하면, 앱에서 실제 Gemini AI의 응답을 받을 수 있습니다.
