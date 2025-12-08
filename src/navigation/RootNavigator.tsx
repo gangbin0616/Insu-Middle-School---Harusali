@@ -8,7 +8,7 @@ import RoomMissionScreen from '../screens/RoomMissionScreen';
 import ReportScreen from '../screens/ReportScreen';
 import GpsDemoScreen from '../screens/GpsDemoScreen';
 import ChatHistoryScreen from '../screens/ChatHistoryScreen';
-import MarkerMissionScreen from '../screens/MarkerMissionScreen'; // New import
+import MarkerMissionScreen from '../screens/MarkerMissionScreen';
 
 export type RootStackParamList = {
   HomeScreen: undefined;
@@ -17,7 +17,7 @@ export type RootStackParamList = {
   ReportScreen: undefined;
   GpsDemoScreen: undefined;
   ChatHistoryScreen: undefined;
-  MarkerMissionScreen: { id: string; title: string; }; // New screen with params
+  MarkerMissionScreen: { id: string; title: string; };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -32,7 +32,7 @@ const RootNavigator = () => {
         <Stack.Screen name="ReportScreen" component={ReportScreen} />
         <Stack.Screen name="GpsDemoScreen" component={GpsDemoScreen} />
         <Stack.Screen name="ChatHistoryScreen" component={ChatHistoryScreen} />
-        <Stack.Screen name="MarkerMissionScreen" component={MarkerMissionScreen} /> {/* New screen */}
+        <Stack.Screen name="MarkerMissionScreen" component={MarkerMissionScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    ImageBackground,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -77,8 +78,12 @@ const HomeScreen = ({ navigation }: Props) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.backgroundView}>
+    <ImageBackground 
+      source={require('../../assets/room_bg.png')} 
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <SafeAreaView style={styles.safeArea}>
         <View style={styles.topRightContainer}>
           <View style={styles.dayCountBubble}>
             <Text style={styles.dayCountText}>몇 일차 : {dayCount}</Text>
@@ -119,13 +124,12 @@ const HomeScreen = ({ navigation }: Props) => {
           style={styles.keyboardAvoidingView}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          <View style={styles.chatBarBackground}>
-            <Text style={styles.chatBarLabel}>하루♥</Text>
+          <View style={styles.chatBarContainer}>
             <TextInput
               style={styles.textInput}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="오늘 하루 어땠어?"
+              placeholder="하루♥랑 대화하기"
               placeholderTextColor={COLORS.gray}
             />
             <TouchableOpacity style={styles.chatGoButton} onPress={handleSend} disabled={isLoading}>
@@ -133,36 +137,74 @@ const HomeScreen = ({ navigation }: Props) => {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EAE6F0' },
-  backgroundView: { flex: 1 },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
   topRightContainer: { position: 'absolute', top: 20, right: 20, zIndex: 10 },
-  dayCountBubble: { backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  dayCountBubble: { backgroundColor: 'rgba(255,255,255,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   dayCountText: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
-  gpsButton: { position: 'absolute', top: 20, right: 160, padding: 10, backgroundColor: COLORS.secondary, borderRadius: 5, zIndex: 10 },
+  gpsButton: { position: 'absolute', top: 20, right: 180, padding: 10, backgroundColor: COLORS.secondary, borderRadius: 5, zIndex: 10 },
   gpsButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: 'bold' },
   resetButton: { position: 'absolute', top: 70, right: 20, padding: 10, backgroundColor: COLORS.danger, borderRadius: 5, zIndex: 10 },
   resetButtonText: { color: COLORS.white, fontSize: 14 },
-  sideMenu: { position: 'absolute', left: 20, top: 0, bottom: 0, justifyContent: 'center', zIndex: 10, paddingLeft: 10 },
-  sideMenuItem: { alignItems: 'center', marginBottom: 25 },
+  sideMenu: { 
+    position: 'absolute', 
+    left: 0, 
+    top: 50, 
+    zIndex: 10, 
+    paddingLeft: 20, 
+    width: 100,
+    alignItems: 'center',
+  },
+  sideMenuItem: { alignItems: 'center', marginBottom: 30 },
   menuIcon: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 5 },
-  menuItemText: { fontSize: 14, color: COLORS.text, fontWeight: 'bold' },
+  menuItemText: { fontSize: 14, color: COLORS.white, fontWeight: 'bold', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 5 },
   iconPlaceholderText: { fontSize: 14, color: COLORS.white },
   mainContentArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   haruCharacter: { width: 150, height: 200, backgroundColor: COLORS.primary, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 - 120, zIndex: 5 },
   botMessageText: { fontSize: 16, color: COLORS.text },
-  keyboardAvoidingView: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingLeft: 100 },
-  chatBarBackground: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, height: 70, borderTopWidth: 1, borderTopColor: COLORS.lightGray },
-  chatBarLabel: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary, marginRight: 10 },
-  textInput: { flex: 1, height: 40, backgroundColor: '#f0f0f0', borderRadius: 20, paddingHorizontal: 15, fontSize: 16 },
-  chatGoButton: { paddingLeft: 15, paddingRight: 5 },
+  keyboardAvoidingView: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0,
+    zIndex: 20, // Keep zIndex to ensure it's on top
+  },
+  chatBarContainer: { 
+    backgroundColor: 'transparent', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 10,
+    paddingHorizontal: 20, 
+    height: 70,
+    paddingLeft: 120, // Add padding to avoid side menu
+  },
+  textInput: { 
+    flex: 1, 
+    height: 50,
+    fontSize: 16,
+    color: COLORS.text,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    marginRight: 10,
+  },
+  chatGoButton: { 
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   chatGoButtonText: { fontSize: 24, color: COLORS.primary },
 });
 
 export default HomeScreen;
+
