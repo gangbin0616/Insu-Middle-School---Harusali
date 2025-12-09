@@ -11,6 +11,8 @@ import {
     Platform,
     ActivityIndicator,
     ImageBackground,
+    Image,
+    ImageStyle, // Import ImageStyle
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -21,6 +23,18 @@ import { getGeminiResponse } from '../api/gemini';
 type Props = NativeStackScreenProps<RootStackParamList, 'HomeScreen'>;
 
 const { width, height } = Dimensions.get('window');
+
+// Explicitly type image styles to prevent type conflicts
+const haruCharacterStyle: ImageStyle = { 
+  width: 1000, 
+  height: 380, 
+  transform: [{ translateY: 55 }]
+};
+
+const menuIconStyle: ImageStyle = {
+  width: '100%', 
+  height: '100%',
+};
 
 const HomeScreen = ({ navigation }: Props) => {
   const { dayCount, resetDayCount, addMessage } = useAppState();
@@ -68,10 +82,10 @@ const HomeScreen = ({ navigation }: Props) => {
     }
   };
 
-  const SideMenuItem = ({ label, onPress }: { label: string; onPress: () => void }) => (
+  const SideMenuItem = ({ label, onPress, iconSource }: { label: string; onPress: () => void; iconSource: any }) => (
     <TouchableOpacity onPress={onPress} style={styles.sideMenuItem}>
-      <View style={[styles.menuIcon, { backgroundColor: COLORS.secondary }]}>
-        <Text style={styles.iconPlaceholderText}>{label.charAt(0)}</Text>
+      <View style={styles.menuIconContainer}>
+        <Image source={iconSource} style={menuIconStyle} />
       </View>
       <Text style={styles.menuItemText}>{label}</Text>
     </TouchableOpacity>
@@ -84,10 +98,14 @@ const HomeScreen = ({ navigation }: Props) => {
       resizeMode="cover"
     >
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topRightContainer}>
-          <View style={styles.dayCountBubble}>
-            <Text style={styles.dayCountText}>몇 일차 : {dayCount}</Text>
-          </View>
+        <View style={styles.dayCounterContainer}>
+          <ImageBackground
+            source={require('../../assets/d_day_icon.png')}
+            style={styles.dayCounterBackground}
+            resizeMode="contain"
+          >
+            <Text style={styles.dayCounterText}>{dayCount}</Text>
+          </ImageBackground>
         </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('GpsDemoScreen')} style={styles.gpsButton}>
@@ -98,15 +116,17 @@ const HomeScreen = ({ navigation }: Props) => {
         </TouchableOpacity>
 
         <View style={styles.sideMenu}>
-          <SideMenuItem label="일기" onPress={() => alert('아직 준비되지 않았어요!')} />
-          <SideMenuItem label="기록" onPress={() => navigation.navigate('ChatHistoryScreen')} />
-          <SideMenuItem label="미션" onPress={() => navigation.navigate('RoomMissionScreen')} />
+          <SideMenuItem label="일기" onPress={() => alert('아직 준비되지 않았어요!')} iconSource={require('../../assets/diary_icon.png')} />
+          <SideMenuItem label="미션" onPress={() => navigation.navigate('RoomMissionScreen')} iconSource={require('../../assets/mission_icon.png')} />
+          <SideMenuItem label="기록" onPress={() => navigation.navigate('ChatHistoryScreen')} iconSource={require('../../assets/record_icon.png')} />
         </View>
 
         <View style={styles.mainContentArea}>
-          <View style={styles.haruCharacter}>
-            <Text style={styles.iconPlaceholderText}>하루</Text>
-          </View>
+          <Image 
+            source={require('../../assets/haru_body.png')} 
+            style={haruCharacterStyle} 
+            resizeMode="contain" 
+          />
 
           {lastBotMessage && (
             <View style={styles.botBubble}>
@@ -145,9 +165,29 @@ const HomeScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  topRightContainer: { position: 'absolute', top: 20, right: 20, zIndex: 10 },
-  dayCountBubble: { backgroundColor: 'rgba(255,255,255,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  dayCountText: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
+  dayCounterContainer: {
+    position: 'absolute',
+    top: -10,
+    right: 30,
+    width: 100,
+    height: 80,
+    zIndex: 10,
+  },
+  dayCounterBackground: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayCounterText: {
+    fontSize: 18,
+    fontWeight: 'normal', // Changed from thin
+    color: '#828282ff',
+    transform: [{ translateX: 22 }, { translateY: 4 }],
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
   gpsButton: { position: 'absolute', top: 20, right: 180, padding: 10, backgroundColor: COLORS.secondary, borderRadius: 5, zIndex: 10 },
   gpsButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: 'bold' },
   resetButton: { position: 'absolute', top: 70, right: 20, padding: 10, backgroundColor: COLORS.danger, borderRadius: 5, zIndex: 10 },
@@ -162,11 +202,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sideMenuItem: { alignItems: 'center', marginBottom: 30 },
-  menuIcon: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 5 },
+  menuIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginBottom: 5,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
   menuItemText: { fontSize: 14, color: COLORS.white, fontWeight: 'bold', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 5 },
   iconPlaceholderText: { fontSize: 14, color: COLORS.white },
   mainContentArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  haruCharacter: { width: 150, height: 200, backgroundColor: COLORS.primary, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 - 120, zIndex: 5 },
   botMessageText: { fontSize: 16, color: COLORS.text },
   keyboardAvoidingView: { 
@@ -174,7 +220,7 @@ const styles = StyleSheet.create({
     bottom: 0, 
     left: 0, 
     right: 0,
-    zIndex: 20, // Keep zIndex to ensure it's on top
+    zIndex: 20,
   },
   chatBarContainer: { 
     backgroundColor: 'transparent', 
@@ -183,7 +229,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20, 
     height: 70,
-    paddingLeft: 120, // Add padding to avoid side menu
+    paddingLeft: 120,
   },
   textInput: { 
     flex: 1, 
