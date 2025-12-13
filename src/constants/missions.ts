@@ -1,14 +1,12 @@
 export interface Mission {
   id: string;
   text: string;
-  relatedEmotion: string;
+  relatedEmotion?: string;
+  description: string;
 }
 
 export const MISSIONS: Mission[] = [
-  { id: 'm01', text: '책상을 정리해보자! 하루와 같이 정리하며 친해지자.', relatedEmotion: 'lethargic' },
-  { id: 'm02', text: '좋아하는 음악 한 곡을 끝까지 들어보자.', relatedEmotion: 'anxious' },
-  { id: 'm03', text: '창밖을 1분 동안 아무 생각 없이 바라보자.', relatedEmotion: 'zoned_out' },
-  { id: 'm04', text: '차가운 물 한 잔을 천천히 마셔보자.', relatedEmotion: 'stifled' },
-  { id: 'm05', text: '스트레칭으로 굳은 몸을 풀어주자.', relatedEmotion: 'lethargic' },
-  { id: 'm06', text: '가장 편한 옷으로 갈아입기.', relatedEmotion: 'anxious' },
+  { id: '1', text: '화분에 물 주고 사진 찍기', description: '집에 있는 화분에 물을 주고 사진을 찍어 인증해 보세요.' },
+  { id: '2', text: '분리수거하고 사진 찍기', description: '오늘 하루 모은 재활용품을 분리수거해 보세요.' },
+  { id: '3', text: '책장에 책 꽂고 사진 찍기', description: '책상이나 책장에 책을 정리해서 꽂아 보세요.' },
 ];

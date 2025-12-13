@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   menuItemText: { fontSize: 14, color: COLORS.white, fontWeight: 'bold', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 5 },
   iconPlaceholderText: { fontSize: 14, color: COLORS.white },
   mainContentArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 - 120, zIndex: 5 },
+  botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 + 40, zIndex: 5 },
   botMessageText: { fontSize: 16, color: COLORS.text },
   keyboardAvoidingView: { 
     position: 'absolute', 

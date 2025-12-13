@@ -31,14 +31,9 @@ const MissionItem = ({ mission, onSelect }: { mission: Mission, onSelect: (missi
 );
 
 const RoomMissionScreen = ({ navigation }: Props) => {
-  const { selectedEmotion, missionHistory, completeMission } = useAppState();
+  const { missionHistory, completeMission } = useAppState();
 
-  const missionList = useMemo(() => 
-    selectedEmotion 
-      ? MISSIONS.filter(m => m.relatedEmotion === selectedEmotion) 
-      : MISSIONS, 
-    [selectedEmotion]
-  );
+  const missionList = MISSIONS;
 
   const [currentMission, setCurrentMission] = useState<Mission | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -349,7 +344,7 @@ const styles = StyleSheet.create({
   },
   homeButton: {
     position: 'absolute',
-    top: 40,
+    bottom: 20,
     left: 20,
   },
   homeButtonText: {
