@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Mission, MISSIONS } from '../constants/missions';
+import { HaruEmotion, API_KEY_STORAGE_KEY, getGeminiResponse } from '../api/gemini';
 
 // --- NEW TYPES ---
 export interface ChatMessage {
@@ -8,6 +9,7 @@ export interface ChatMessage {
   text: string;
   sender: 'user' | 'bot';
   timestamp: number;
+  state?: HaruEmotion; // Add optional state for bot's emotion
 }
 
 export interface CompletedMission {
@@ -25,13 +27,17 @@ interface AppState {
   reportType: string;
   chatHistory: ChatMessage[];
   missionHistory: CompletedMission[];
+  defaultHaruEmotion: HaruEmotion;
   incrementDayCount: () => void;
-  resetDayCount: () => void;
+  softReset: () => void;
+  hardReset: () => void;
   selectEmotion: (emotionId: string) => void;
   selectMission: (mission: Mission) => void;
   generateReport: () => void;
   addMessage: (message: ChatMessage) => void;
   completeMission: (mission: Mission, photoUri?: string) => void;
+  setDefaultHaruEmotion: (emotion: HaruEmotion) => void;
+  updateApiKey: (newKey: string) => Promise<boolean>;
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -40,6 +46,7 @@ const AppStateContext = createContext<AppState | undefined>(undefined);
 const DAY_COUNT_KEY = 'harusali_dayCount';
 const CHAT_HISTORY_KEY = 'harusali_chatHistory';
 const MISSION_HISTORY_KEY = 'harusali_missionHistory';
+const DEFAULT_HARU_EMOTION_KEY = 'harusali_defaultHaruEmotion';
 
 
 export const AppStateProvider = ({ children }: { children: ReactNode }) => {
@@ -49,6 +56,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [reportType, setReportType] = useState('default');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [missionHistory, setMissionHistory] = useState<CompletedMission[]>([]);
+  const [defaultHaruEmotion, setDefaultHaruEmotionState] = useState<HaruEmotion>('neutral');
 
   // --- LOAD STATE FROM ASYNCSTORAGE ON MOUNT ---
   useEffect(() => {
@@ -70,6 +78,9 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         const storedMissions = await AsyncStorage.getItem(MISSION_HISTORY_KEY);
         if(storedMissions) setMissionHistory(JSON.parse(storedMissions));
 
+        const storedDefaultEmotion = await AsyncStorage.getItem(DEFAULT_HARU_EMOTION_KEY);
+        if(storedDefaultEmotion) setDefaultHaruEmotionState(storedDefaultEmotion as HaruEmotion);
+
       } catch (e) {
         console.error('Failed to load state.', e);
       }
@@ -84,7 +95,16 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.setItem(DAY_COUNT_KEY, newDayCount.toString());
   };
 
-  const resetDayCount = async () => {
+  const softReset = async () => {
+    try {
+      setChatHistory([]);
+      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+    } catch(e) {
+      console.error('Failed to soft reset state.', e);
+    }
+  };
+
+  const hardReset = async () => {
     try {
         setDayCount(1);
         setSelectedEmotion(null);
@@ -92,12 +112,42 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         setReportType('default');
         setChatHistory([]);
         setMissionHistory([]);
+        setDefaultHaruEmotion('neutral');
 
+        await AsyncStorage.multiRemove([
+            DAY_COUNT_KEY, 
+            CHAT_HISTORY_KEY, 
+            MISSION_HISTORY_KEY, 
+            DEFAULT_HARU_EMOTION_KEY, 
+            API_KEY_STORAGE_KEY
+        ]);
         await AsyncStorage.setItem(DAY_COUNT_KEY, '1');
-        await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
-        await AsyncStorage.removeItem(MISSION_HISTORY_KEY);
+
     } catch(e) {
-        console.error('Failed to reset state.', e);
+        console.error('Failed to hard reset state.', e);
+    }
+  };
+
+  const updateApiKey = async (newKey: string): Promise<boolean> => {
+    const oldKey = await AsyncStorage.getItem(API_KEY_STORAGE_KEY);
+    try {
+      await AsyncStorage.setItem(API_KEY_STORAGE_KEY, newKey);
+      // Test the new key
+      const response = await getGeminiResponse('hello');
+      // A very basic check. If the response text is one of the generic error messages, the key is likely invalid.
+      if (response.text.includes('API 키') || response.text.includes('연결이 어려운 것 같아')) {
+        throw new Error('Invalid API key or network issue');
+      }
+      return true;
+    } catch (e) {
+      console.error("Failed to update API key:", e);
+      // Revert to the old key if the new one fails
+      if (oldKey) {
+        await AsyncStorage.setItem(API_KEY_STORAGE_KEY, oldKey);
+      } else {
+        await AsyncStorage.removeItem(API_KEY_STORAGE_KEY);
+      }
+      return false;
     }
   };
 
@@ -143,6 +193,11 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const setDefaultHaruEmotion = async (emotion: HaruEmotion) => {
+    setDefaultHaruEmotionState(emotion);
+    await AsyncStorage.setItem(DEFAULT_HARU_EMOTION_KEY, emotion);
+  };
+
 
   return (
     <AppStateContext.Provider
@@ -153,13 +208,17 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         reportType,
         chatHistory,
         missionHistory,
+        defaultHaruEmotion,
         incrementDayCount,
-        resetDayCount,
+        softReset,
+        hardReset,
         selectEmotion,
         selectMission,
         generateReport,
         addMessage,
         completeMission,
+        setDefaultHaruEmotion,
+        updateApiKey,
       }}
     >
       {children}

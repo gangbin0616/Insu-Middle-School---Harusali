@@ -1,43 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-    StyleSheet,
-    Text,
-    View,
-    TouchableOpacity,
-    SafeAreaView,
-    Dimensions,
-    TextInput,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    ImageBackground,
-    Image,
-    ImageStyle, // Import ImageStyle
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  Dimensions,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ImageBackground,
+  Image,
+  ImageStyle,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useAppState, ChatMessage } from '../context/AppStateContext';
 import { COLORS } from '../constants/colors';
-import { getGeminiResponse } from '../api/gemini';
+import { getGeminiResponse, HaruEmotion } from '../api/gemini';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HomeScreen'>;
 
 const { width, height } = Dimensions.get('window');
 
-// Explicitly type image styles to prevent type conflicts
-const haruCharacterStyle: ImageStyle = { 
-  width: 1000, 
-  height: 380, 
-  transform: [{ translateY: 55 }]
+// --- Haru Character Image Mapping ---
+const haruImages: { [key in HaruEmotion]: any } = {
+  neutral: require('../../assets/KakaoTalk_20251215_123328170.png'),
+  very_shy: require('../../assets/KakaoTalk_20251215_123328170_01.png'),
+  turned_away: require('../../assets/KakaoTalk_20251215_123328170_02.png'),
+  relaxed_smile: require('../../assets/KakaoTalk_20251215_123328170_03.png'),
+  half_turned: require('../../assets/KakaoTalk_20251215_123328170_04.png'),
+};
+
+const haruCharacterStyle: ImageStyle = {
+  width: 1000,
+  height: 380,
+  transform: [{ translateY: 55 }],
 };
 
 const menuIconStyle: ImageStyle = {
-  width: '100%', 
+  width: '100%',
   height: '100%',
 };
 
 const HomeScreen = ({ navigation }: Props) => {
-  const { dayCount, resetDayCount, addMessage } = useAppState();
+  const { dayCount, hardReset, addMessage, defaultHaruEmotion } = useAppState();
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastBotMessage, setLastBotMessage] = useState<ChatMessage | null>(null);
@@ -55,15 +63,22 @@ const HomeScreen = ({ navigation }: Props) => {
     const messageToSend = inputText;
     setInputText('');
     setIsLoading(true);
-    setLastBotMessage({ id: 'thinking', text: '...', sender: 'bot', timestamp: Date.now() });
+    setLastBotMessage({
+      id: 'thinking',
+      text: '...',
+      sender: 'bot',
+      timestamp: Date.now(),
+      state: lastBotMessage?.state || defaultHaruEmotion, // Keep previous state or use default while thinking
+    });
 
     try {
-      const botResponseText = await getGeminiResponse(messageToSend);
+      const botResponse = await getGeminiResponse(messageToSend);
       const botMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: botResponseText,
+        text: botResponse.text,
         sender: 'bot',
         timestamp: Date.now(),
+        state: botResponse.state, // Include the emotion state
       };
       addMessage(botMessage);
       setLastBotMessage(botMessage);
@@ -71,9 +86,10 @@ const HomeScreen = ({ navigation }: Props) => {
       console.error(error);
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: "미안, 지금은 응답할 수 없어.",
+        text: '미안, 지금은 응답할 수 없어.',
         sender: 'bot',
         timestamp: Date.now(),
+        state: 'neutral',
       };
       addMessage(errorMessage);
       setLastBotMessage(errorMessage);
@@ -81,6 +97,13 @@ const HomeScreen = ({ navigation }: Props) => {
       setIsLoading(false);
     }
   };
+  
+  // Memoize the current image source to prevent re-renders
+  const haruImageSource = useMemo(() => {
+    const currentState = lastBotMessage?.state || defaultHaruEmotion;
+    return haruImages[currentState];
+  }, [lastBotMessage, defaultHaruEmotion]);
+
 
   const SideMenuItem = ({ label, onPress, iconSource }: { label: string; onPress: () => void; iconSource: any }) => (
     <TouchableOpacity onPress={onPress} style={styles.sideMenuItem}>
@@ -92,8 +115,8 @@ const HomeScreen = ({ navigation }: Props) => {
   );
 
   return (
-    <ImageBackground 
-      source={require('../../assets/room_bg.png')} 
+    <ImageBackground
+      source={require('../../assets/room_bg.png')}
       style={styles.container}
       resizeMode="cover"
     >
@@ -111,8 +134,8 @@ const HomeScreen = ({ navigation }: Props) => {
         <TouchableOpacity onPress={() => navigation.navigate('GpsDemoScreen')} style={styles.gpsButton}>
           <Text style={styles.gpsButtonText}>밖으로 나가면?</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={resetDayCount} style={styles.resetButton}>
-          <Text style={styles.resetButtonText}>리셋</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('AdminScreen')} style={styles.adminButton}>
+          <Text style={styles.adminButtonText}>⚙️</Text>
         </TouchableOpacity>
 
         <View style={styles.sideMenu}>
@@ -122,10 +145,10 @@ const HomeScreen = ({ navigation }: Props) => {
         </View>
 
         <View style={styles.mainContentArea}>
-          <Image 
-            source={require('../../assets/haru_body.png')} 
-            style={haruCharacterStyle} 
-            resizeMode="contain" 
+          <Image
+            source={haruImageSource} // Use dynamic image source
+            style={haruCharacterStyle}
+            resizeMode="contain"
           />
 
           {lastBotMessage && (
@@ -190,14 +213,14 @@ const styles = StyleSheet.create({
   },
   gpsButton: { position: 'absolute', top: 20, right: 180, padding: 10, backgroundColor: COLORS.secondary, borderRadius: 5, zIndex: 10 },
   gpsButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: 'bold' },
-  resetButton: { position: 'absolute', top: 70, right: 20, padding: 10, backgroundColor: COLORS.danger, borderRadius: 5, zIndex: 10 },
-  resetButtonText: { color: COLORS.white, fontSize: 14 },
-  sideMenu: { 
-    position: 'absolute', 
-    left: 0, 
-    top: 50, 
-    zIndex: 10, 
-    paddingLeft: 20, 
+  adminButton: { position: 'absolute', top: 70, right: 20, padding: 10, backgroundColor: COLORS.lightGray, borderRadius: 5, zIndex: 10 },
+  adminButtonText: { color: COLORS.white, fontSize: 14 },
+  sideMenu: {
+    position: 'absolute',
+    left: 0,
+    top: 50,
+    zIndex: 10,
+    paddingLeft: 20,
     width: 100,
     alignItems: 'center',
   },
@@ -215,24 +238,24 @@ const styles = StyleSheet.create({
   mainContentArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 + 40, zIndex: 5 },
   botMessageText: { fontSize: 16, color: COLORS.text },
-  keyboardAvoidingView: { 
-    position: 'absolute', 
-    bottom: 0, 
-    left: 0, 
+  keyboardAvoidingView: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
     right: 0,
     zIndex: 20,
   },
-  chatBarContainer: { 
-    backgroundColor: 'transparent', 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  chatBarContainer: {
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 20, 
+    paddingHorizontal: 20,
     height: 70,
     paddingLeft: 120,
   },
-  textInput: { 
-    flex: 1, 
+  textInput: {
+    flex: 1,
     height: 50,
     fontSize: 16,
     color: COLORS.text,
@@ -241,7 +264,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginRight: 10,
   },
-  chatGoButton: { 
+  chatGoButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
