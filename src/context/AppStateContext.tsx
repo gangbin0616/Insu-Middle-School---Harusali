@@ -28,6 +28,7 @@ interface AppState {
   chatHistory: ChatMessage[];
   missionHistory: CompletedMission[];
   defaultHaruEmotion: HaruEmotion;
+  chatCount: number; // Add chatCount
   incrementDayCount: () => void;
   softReset: () => void;
   hardReset: () => void;
@@ -38,6 +39,7 @@ interface AppState {
   completeMission: (mission: Mission, photoUri?: string) => void;
   setDefaultHaruEmotion: (emotion: HaruEmotion) => void;
   updateApiKey: (newKey: string) => Promise<boolean>;
+  incrementChatCount: () => void; // Add incrementChatCount
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
@@ -47,6 +49,7 @@ const DAY_COUNT_KEY = 'harusali_dayCount';
 const CHAT_HISTORY_KEY = 'harusali_chatHistory';
 const MISSION_HISTORY_KEY = 'harusali_missionHistory';
 const DEFAULT_HARU_EMOTION_KEY = 'harusali_defaultHaruEmotion';
+const CHAT_COUNT_KEY = 'harusali_chatCount'; // Add chat count key
 
 
 export const AppStateProvider = ({ children }: { children: ReactNode }) => {
@@ -57,6 +60,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [missionHistory, setMissionHistory] = useState<CompletedMission[]>([]);
   const [defaultHaruEmotion, setDefaultHaruEmotionState] = useState<HaruEmotion>('neutral');
+  const [chatCount, setChatCount] = useState(0); // Add chatCount state
 
   // --- LOAD STATE FROM ASYNCSTORAGE ON MOUNT ---
   useEffect(() => {
@@ -80,6 +84,14 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
 
         const storedDefaultEmotion = await AsyncStorage.getItem(DEFAULT_HARU_EMOTION_KEY);
         if(storedDefaultEmotion) setDefaultHaruEmotionState(storedDefaultEmotion as HaruEmotion);
+        
+        const storedChatCount = await AsyncStorage.getItem(CHAT_COUNT_KEY);
+        if (storedChatCount) {
+          setChatCount(parseInt(storedChatCount, 10));
+        } else {
+            await AsyncStorage.setItem(CHAT_COUNT_KEY, '0');
+            setChatCount(0);
+        }
 
       } catch (e) {
         console.error('Failed to load state.', e);
@@ -95,10 +107,19 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.setItem(DAY_COUNT_KEY, newDayCount.toString());
   };
 
+  const incrementChatCount = async () => {
+    const newChatCount = chatCount + 1;
+    setChatCount(newChatCount);
+    await AsyncStorage.setItem(CHAT_COUNT_KEY, newChatCount.toString());
+  };
+
   const softReset = async () => {
     try {
       setChatHistory([]);
+      setChatCount(0);
       await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+      await AsyncStorage.removeItem(CHAT_COUNT_KEY);
+      await AsyncStorage.setItem(CHAT_COUNT_KEY, '0');
     } catch(e) {
       console.error('Failed to soft reset state.', e);
     }
@@ -113,15 +134,18 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         setChatHistory([]);
         setMissionHistory([]);
         setDefaultHaruEmotion('neutral');
+        setChatCount(0); // Reset chat count
 
         await AsyncStorage.multiRemove([
             DAY_COUNT_KEY, 
             CHAT_HISTORY_KEY, 
             MISSION_HISTORY_KEY, 
             DEFAULT_HARU_EMOTION_KEY, 
-            API_KEY_STORAGE_KEY
+            API_KEY_STORAGE_KEY,
+            CHAT_COUNT_KEY, // Remove chat count key
         ]);
         await AsyncStorage.setItem(DAY_COUNT_KEY, '1');
+        await AsyncStorage.setItem(CHAT_COUNT_KEY, '0'); // Reset chat count in storage
 
     } catch(e) {
         console.error('Failed to hard reset state.', e);
@@ -209,6 +233,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         chatHistory,
         missionHistory,
         defaultHaruEmotion,
+        chatCount, // export chatCount
         incrementDayCount,
         softReset,
         hardReset,
@@ -219,6 +244,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         completeMission,
         setDefaultHaruEmotion,
         updateApiKey,
+        incrementChatCount, // export incrementChatCount
       }}
     >
       {children}

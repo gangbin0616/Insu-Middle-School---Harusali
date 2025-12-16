@@ -45,7 +45,7 @@ const menuIconStyle: ImageStyle = {
 };
 
 const HomeScreen = ({ navigation }: Props) => {
-  const { dayCount, hardReset, addMessage, defaultHaruEmotion } = useAppState();
+  const { dayCount, addMessage, defaultHaruEmotion, incrementChatCount } = useAppState();
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastBotMessage, setLastBotMessage] = useState<ChatMessage | null>(null);
@@ -81,6 +81,7 @@ const HomeScreen = ({ navigation }: Props) => {
         state: botResponse.state, // Include the emotion state
       };
       addMessage(botMessage);
+      incrementChatCount(); // Increment chat count here
       setLastBotMessage(botMessage);
     } catch (error) {
       console.error(error);
@@ -139,7 +140,7 @@ const HomeScreen = ({ navigation }: Props) => {
         </TouchableOpacity>
 
         <View style={styles.sideMenu}>
-          <SideMenuItem label="일기" onPress={() => alert('아직 준비되지 않았어요!')} iconSource={require('../../assets/diary_icon.png')} />
+          <SideMenuItem label="일기" onPress={() => navigation.navigate('DiaryScreen')} iconSource={require('../../assets/diary_icon.png')} />
           <SideMenuItem label="미션" onPress={() => navigation.navigate('RoomMissionScreen')} iconSource={require('../../assets/mission_icon.png')} />
           <SideMenuItem label="기록" onPress={() => navigation.navigate('ChatHistoryScreen')} iconSource={require('../../assets/record_icon.png')} />
         </View>
@@ -276,4 +277,3 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
-

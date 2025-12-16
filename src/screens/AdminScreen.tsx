@@ -99,8 +99,8 @@ const AdminScreen = ({ navigation }: Props) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('HomeScreen')}>
-            <Text style={styles.backButtonText}>{"< 홈으로"}</Text>
+        <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.homeButtonText}>홈으로</Text>
         </TouchableOpacity>
       <ScrollView style={styles.container}>
         <Text style={styles.header}>관리자 도구</Text>
@@ -181,9 +181,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  homeButton: {
+    position: 'absolute', top: 24, left: 16, zIndex: 20,
+    backgroundColor: '#E8E5D5', paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 3, elevation: 5,
+  },
+  homeButtonText: { color: '#444444', fontSize: 14, fontWeight: 'bold' },
   container: {
     flex: 1,
     padding: 20,
+    marginTop: 60, // Add margin to avoid overlap with home button
   },
   header: {
     fontSize: 28,

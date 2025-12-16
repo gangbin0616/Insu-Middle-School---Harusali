@@ -10,6 +10,7 @@ import GpsDemoScreen from '../screens/GpsDemoScreen';
 import ChatHistoryScreen from '../screens/ChatHistoryScreen';
 import MarkerMissionScreen from '../screens/MarkerMissionScreen';
 import AdminScreen from '../screens/AdminScreen';
+import DiaryScreen from '../screens/DiaryScreen';
 
 export type RootStackParamList = {
   HomeScreen: undefined;
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   ChatHistoryScreen: undefined;
   MarkerMissionScreen: { id: string; title: string; };
   AdminScreen: undefined;
+  DiaryScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -36,6 +38,7 @@ const RootNavigator = () => {
         <Stack.Screen name="ChatHistoryScreen" component={ChatHistoryScreen} />
         <Stack.Screen name="MarkerMissionScreen" component={MarkerMissionScreen} />
         <Stack.Screen name="AdminScreen" component={AdminScreen} />
+        <Stack.Screen name="DiaryScreen" component={DiaryScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
