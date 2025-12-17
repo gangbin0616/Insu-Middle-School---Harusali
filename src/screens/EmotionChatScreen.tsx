@@ -18,17 +18,26 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EmotionChatScreen'>;
 const { width } = Dimensions.get('window');
 
 const EmotionChatScreen = ({ navigation }: Props) => {
-  const { selectEmotion } = useAppState();
+  const { sendUserMessage } = useAppState();
   const [localSelectedEmotionId, setLocalSelectedEmotionId] = useState<string | null>(null);
 
   const handleSelectEmotion = (emotionId: string) => {
     setLocalSelectedEmotionId(emotionId);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (localSelectedEmotionId) {
-      selectEmotion(localSelectedEmotionId);
-      navigation.navigate('RoomMissionScreen');
+      const selectedEmotion = EMOTIONS.find(e => e.id === localSelectedEmotionId);
+      if (selectedEmotion) {
+        const userMessage: ChatMessage = {
+          id: Date.now().toString(),
+          text: selectedEmotion.text,
+          sender: 'user',
+          timestamp: Date.now(),
+        };
+        await sendUserMessage(userMessage);
+        navigation.navigate('HomeScreen');
+      }
     }
   };
 

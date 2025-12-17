@@ -3,11 +3,10 @@
  * @description The main screen of the app where users interact with Haru.
  *
  * @changelog
- * - Refactored to use global state `isAiThinking` from AppStateContext for loading indicators and disabling input, removing local `isLoading` state.
- * - Simplified `handleSend` to call the new `addMessage` (handleUserMessage) from the context, centralizing the chat logic.
- * - Removed local `lastBotMessage` state and now derives the last message directly from the global `chatHistory` for consistency.
+ * - Added fade animation for Haru's character image changes to prevent blinking.
+ * - Haru's image now immediately changes to 'neutral' when the AI is thinking.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import {
   ImageBackground,
   Image,
   ImageStyle,
+  Animated,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -53,36 +53,53 @@ const menuIconStyle: ImageStyle = {
 };
 
 const HomeScreen = ({ navigation }: Props) => {
-  const { dayCount, addMessage, haruEmotion, chatHistory, isAiThinking, isInitialized } = useAppState();
+  const { dayCount, sendUserMessage, haruEmotion, chatHistory, isAiThinking, isInitialized } = useAppState();
   const [inputText, setInputText] = useState('');
 
-  // The last message from the bot to display in the bubble.
   const lastBotMessage = useMemo(() => {
     return [...chatHistory].reverse().find(msg => msg.sender === 'bot');
   }, [chatHistory]);
 
+  const targetImageSource = useMemo(() => {
+    if (isAiThinking) {
+      return haruImages['neutral'];
+    }
+    const currentEmotion = lastBotMessage?.state || haruEmotion;
+    return haruImages[currentEmotion] || haruImages['neutral'];
+  }, [isAiThinking, lastBotMessage, haruEmotion]);
+
+  // Animation state
+  const [activeImageSource, setActiveImageSource] = useState(targetImageSource);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (targetImageSource !== activeImageSource) {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        setActiveImageSource(targetImageSource);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      });
+    }
+  }, [targetImageSource]);
+
   const handleSend = async () => {
     if (inputText.trim().length === 0 || isAiThinking || !isInitialized) return;
-
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: inputText,
       sender: 'user',
       timestamp: Date.now(),
     };
-    
     setInputText('');
-    // This single call now handles user message, AI thinking state, and bot response
-    await addMessage(userMessage);
+    await sendUserMessage(userMessage);
   };
-
-  const haruImageSource = useMemo(() => {
-    // During conversation, the emotion is driven by the bot's last response.
-    // Otherwise, it uses the default emotion set by the admin.
-    const currentEmotion = lastBotMessage?.state || haruEmotion;
-    return haruImages[currentEmotion];
-  }, [lastBotMessage, haruEmotion]);
-
 
   const SideMenuItem = ({ label, onPress, iconSource }: { label: string; onPress: () => void; iconSource: any }) => (
     <TouchableOpacity onPress={onPress} style={styles.sideMenuItem} disabled={isAiThinking}>
@@ -126,10 +143,11 @@ const HomeScreen = ({ navigation }: Props) => {
         </View>
 
         <View style={styles.mainContentArea}>
-          <Image
-            source={haruImageSource}
-            style={haruCharacterStyle}
+          <Animated.Image
+            source={activeImageSource}
+            style={[haruCharacterStyle, { opacity: fadeAnim }]}
             resizeMode="contain"
+            fadeDuration={0}
           />
 
           {lastBotMessage && (
