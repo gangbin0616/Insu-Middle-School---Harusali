@@ -1,3 +1,12 @@
+/**
+ * @file src/screens/HomeScreen.tsx
+ * @description The main screen of the app where users interact with Haru.
+ *
+ * @changelog
+ * - Refactored to use global state `isAiThinking` from AppStateContext for loading indicators and disabling input, removing local `isLoading` state.
+ * - Simplified `handleSend` to call the new `addMessage` (handleUserMessage) from the context, centralizing the chat logic.
+ * - Removed local `lastBotMessage` state and now derives the last message directly from the global `chatHistory` for consistency.
+ */
 import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
@@ -18,13 +27,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useAppState, ChatMessage } from '../context/AppStateContext';
 import { COLORS } from '../constants/colors';
-import { getGeminiResponse, HaruEmotion } from '../api/gemini';
+import { HaruEmotion } from '../api/gemini';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HomeScreen'>;
 
 const { width, height } = Dimensions.get('window');
 
-// --- Haru Character Image Mapping ---
 const haruImages: { [key in HaruEmotion]: any } = {
   neutral: require('../../assets/KakaoTalk_20251215_123328170.png'),
   very_shy: require('../../assets/KakaoTalk_20251215_123328170_01.png'),
@@ -45,13 +53,16 @@ const menuIconStyle: ImageStyle = {
 };
 
 const HomeScreen = ({ navigation }: Props) => {
-  const { dayCount, addMessage, defaultHaruEmotion, incrementChatCount } = useAppState();
+  const { dayCount, addMessage, haruEmotion, chatHistory, isAiThinking, isInitialized } = useAppState();
   const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastBotMessage, setLastBotMessage] = useState<ChatMessage | null>(null);
+
+  // The last message from the bot to display in the bubble.
+  const lastBotMessage = useMemo(() => {
+    return [...chatHistory].reverse().find(msg => msg.sender === 'bot');
+  }, [chatHistory]);
 
   const handleSend = async () => {
-    if (inputText.trim().length === 0 || isLoading) return;
+    if (inputText.trim().length === 0 || isAiThinking || !isInitialized) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -59,55 +70,22 @@ const HomeScreen = ({ navigation }: Props) => {
       sender: 'user',
       timestamp: Date.now(),
     };
-    addMessage(userMessage);
-    const messageToSend = inputText;
+    
     setInputText('');
-    setIsLoading(true);
-    setLastBotMessage({
-      id: 'thinking',
-      text: '...',
-      sender: 'bot',
-      timestamp: Date.now(),
-      state: lastBotMessage?.state || defaultHaruEmotion, // Keep previous state or use default while thinking
-    });
-
-    try {
-      const botResponse = await getGeminiResponse(messageToSend);
-      const botMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: botResponse.text,
-        sender: 'bot',
-        timestamp: Date.now(),
-        state: botResponse.state, // Include the emotion state
-      };
-      addMessage(botMessage);
-      incrementChatCount(); // Increment chat count here
-      setLastBotMessage(botMessage);
-    } catch (error) {
-      console.error(error);
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: '미안, 지금은 응답할 수 없어.',
-        sender: 'bot',
-        timestamp: Date.now(),
-        state: 'neutral',
-      };
-      addMessage(errorMessage);
-      setLastBotMessage(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
+    // This single call now handles user message, AI thinking state, and bot response
+    await addMessage(userMessage);
   };
-  
-  // Memoize the current image source to prevent re-renders
+
   const haruImageSource = useMemo(() => {
-    const currentState = lastBotMessage?.state || defaultHaruEmotion;
-    return haruImages[currentState];
-  }, [lastBotMessage, defaultHaruEmotion]);
+    // During conversation, the emotion is driven by the bot's last response.
+    // Otherwise, it uses the default emotion set by the admin.
+    const currentEmotion = lastBotMessage?.state || haruEmotion;
+    return haruImages[currentEmotion];
+  }, [lastBotMessage, haruEmotion]);
 
 
   const SideMenuItem = ({ label, onPress, iconSource }: { label: string; onPress: () => void; iconSource: any }) => (
-    <TouchableOpacity onPress={onPress} style={styles.sideMenuItem}>
+    <TouchableOpacity onPress={onPress} style={styles.sideMenuItem} disabled={isAiThinking}>
       <View style={styles.menuIconContainer}>
         <Image source={iconSource} style={menuIconStyle} />
       </View>
@@ -122,6 +100,8 @@ const HomeScreen = ({ navigation }: Props) => {
       resizeMode="cover"
     >
       <SafeAreaView style={styles.safeArea}>
+        {!isInitialized && <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color={COLORS.primary} />}
+        
         <View style={styles.dayCounterContainer}>
           <ImageBackground
             source={require('../../assets/d_day_icon.png')}
@@ -132,10 +112,10 @@ const HomeScreen = ({ navigation }: Props) => {
           </ImageBackground>
         </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate('GpsDemoScreen')} style={styles.gpsButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('GpsDemoScreen')} style={styles.gpsButton} disabled={isAiThinking}>
           <Text style={styles.gpsButtonText}>밖으로 나가면?</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('AdminScreen')} style={styles.adminButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('AdminScreen')} style={styles.adminButton} disabled={isAiThinking}>
           <Text style={styles.adminButtonText}>⚙️</Text>
         </TouchableOpacity>
 
@@ -147,14 +127,14 @@ const HomeScreen = ({ navigation }: Props) => {
 
         <View style={styles.mainContentArea}>
           <Image
-            source={haruImageSource} // Use dynamic image source
+            source={haruImageSource}
             style={haruCharacterStyle}
             resizeMode="contain"
           />
 
           {lastBotMessage && (
             <View style={styles.botBubble}>
-              {isLoading ? (
+              {isAiThinking && chatHistory[chatHistory.length - 1]?.sender === 'user' ? (
                 <ActivityIndicator color={COLORS.primary} />
               ) : (
                 <Text style={styles.botMessageText}>{lastBotMessage.text}</Text>
@@ -170,14 +150,15 @@ const HomeScreen = ({ navigation }: Props) => {
         >
           <View style={styles.chatBarContainer}>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, (isAiThinking || !isInitialized) && styles.disabledInput]}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="하루♥랑 대화하기"
+              placeholder={isAiThinking ? "하루가 생각에 잠겼어요..." : "하루♥랑 대화하기"}
               placeholderTextColor={COLORS.gray}
+              editable={!isAiThinking && isInitialized}
             />
-            <TouchableOpacity style={styles.chatGoButton} onPress={handleSend} disabled={isLoading}>
-              <Text style={styles.chatGoButtonText}>▶</Text>
+            <TouchableOpacity style={[styles.chatGoButton, (isAiThinking || !isInitialized) && styles.disabledInput]} onPress={handleSend} disabled={isAiThinking || !isInitialized}>
+              {isAiThinking ? <ActivityIndicator color={COLORS.primary} /> : <Text style={styles.chatGoButtonText}>▶</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -189,6 +170,10 @@ const HomeScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
+  disabledInput: {
+    backgroundColor: '#E0E0E0',
+    opacity: 0.7,
+  },
   dayCounterContainer: {
     position: 'absolute',
     top: -10,
@@ -205,7 +190,7 @@ const styles = StyleSheet.create({
   },
   dayCounterText: {
     fontSize: 18,
-    fontWeight: 'normal', // Changed from thin
+    fontWeight: 'normal',
     color: '#828282ff',
     transform: [{ translateX: 22 }, { translateY: 4 }],
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -235,7 +220,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   menuItemText: { fontSize: 14, color: COLORS.white, fontWeight: 'bold', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 5 },
-  iconPlaceholderText: { fontSize: 14, color: COLORS.white },
   mainContentArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   botBubble: { backgroundColor: COLORS.white, padding: 15, borderRadius: 20, borderBottomLeftRadius: 4, maxWidth: width * 0.4, position: 'absolute', bottom: height * 0.5 - 10, left: width * 0.5 + 40, zIndex: 5 },
   botMessageText: { fontSize: 16, color: COLORS.text },

@@ -1,4 +1,12 @@
-import React, { useState, useMemo } from 'react';
+/**
+ * @file src/screens/RoomMissionScreen.tsx
+ * @description Screen for selecting and completing missions with photo proof.
+ *
+ * @changelog
+ * - Added `try/catch` blocks to `pickImage` and `takePhoto` to handle potential errors from the ImagePicker library.
+ * - Added `isSubmitting` state to disable all buttons during the mission completion process, preventing duplicate actions and race conditions.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +18,7 @@ import {
   FlatList,
   Alert,
   ImageBackground,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,10 +30,10 @@ import { MISSIONS, Mission } from '../constants/missions';
 type Props = NativeStackScreenProps<RootStackParamList, 'RoomMissionScreen'>;
 
 // Mission Card Component
-const MissionItem = ({ mission, onSelect }: { mission: Mission, onSelect: (mission: Mission) => void }) => (
+const MissionItem = ({ mission, onSelect, disabled }: { mission: Mission, onSelect: (mission: Mission) => void, disabled: boolean }) => (
   <View style={styles.missionCard}>
     <Text style={styles.missionCardText}>{mission.text}</Text>
-    <TouchableOpacity style={styles.missionSelectButton} onPress={() => onSelect(mission)}>
+    <TouchableOpacity style={[styles.missionSelectButton, disabled && styles.disabledButton]} onPress={() => onSelect(mission)} disabled={disabled}>
       <Text style={styles.missionSelectButtonText}>이 미션 할래</Text>
     </TouchableOpacity>
   </View>
@@ -38,6 +47,7 @@ const RoomMissionScreen = ({ navigation }: Props) => {
   const [currentMission, setCurrentMission] = useState<Mission | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [step, setStep] = useState<'selection' | 'photo' | 'completed'>('selection');
+  const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for completion
 
   const handleSelectMission = (mission: Mission) => {
     setCurrentMission(mission);
@@ -45,56 +55,79 @@ const RoomMissionScreen = ({ navigation }: Props) => {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('권한 필요', '미션을 인증하려면 사진첩 접근 권한이 필요해요.');
-      return;
-    }
+    if (isSubmitting) return;
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '미션을 인증하려면 사진첩 접근 권한이 필요해요.');
+        return;
+      }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("ImagePicker.launchImageLibraryAsync Error:", error);
+      Alert.alert('오류', '갤러리를 여는 동안 문제가 발생했습니다. 다시 시도해주세요.');
     }
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-        Alert.alert('권한 필요', '미션을 인증하려면 카메라 접근 권한이 필요해요.');
-        return;
-    }
+    if (isSubmitting) return;
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+          Alert.alert('권한 필요', '미션을 인증하려면 카메라 접근 권한이 필요해요.');
+          return;
+      }
 
-    let result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-    });
+      let result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 1,
+      });
 
-    if (!result.canceled) {
-        setImageUri(result.assets[0].uri);
+      if (!result.canceled) {
+          setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("ImagePicker.launchCameraAsync Error:", error);
+      Alert.alert('오류', '카메라를 여는 동안 문제가 발생했습니다. 다시 시도해주세요.');
     }
   };
 
-  const handleComplete = () => {
-    if (!currentMission) return;
-    completeMission(currentMission, imageUri || undefined);
-    setStep('completed');
-    setTimeout(() => {
-      navigation.navigate('HomeScreen');
-      // Reset state for next time
-      setStep('selection');
-      setImageUri(null);
-      setCurrentMission(null);
-    }, 2000);
+  const handleComplete = async () => {
+    if (!currentMission || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await completeMission(currentMission, imageUri || undefined);
+      setStep('completed');
+      
+      setTimeout(() => {
+        navigation.navigate('HomeScreen');
+        // Reset state for next time
+        setStep('selection');
+        setImageUri(null);
+        setCurrentMission(null);
+        setIsSubmitting(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error("handleComplete Error:", error);
+      Alert.alert('저장 오류', '미션 완료 정보를 저장하는 데 실패했습니다.');
+      setIsSubmitting(false); // Reset loading state on error
+    }
   };
 
-  const renderHistoryItem = ({ item }) => (
+  const renderHistoryItem = ({ item }: { item: typeof missionHistory[0] }) => (
     <View style={styles.historyItem}>
       <Text style={styles.historyDate}>{item.date}</Text>
       <Text style={styles.historyText} numberOfLines={1}>{item.missionName}</Text>
@@ -103,6 +136,10 @@ const RoomMissionScreen = ({ navigation }: Props) => {
   );
   
   const renderContent = () => {
+    if (isSubmitting) {
+      return <ActivityIndicator size="large" color={COLORS.primary} />;
+    }
+
     switch (step) {
       case 'selection':
         return (
@@ -111,7 +148,7 @@ const RoomMissionScreen = ({ navigation }: Props) => {
             <Text style={styles.cardSubtitle}>마음에 드는 미션을 골라봐.</Text>
             <FlatList
               data={missionList}
-              renderItem={({ item }) => <MissionItem mission={item} onSelect={handleSelectMission} />}
+              renderItem={({ item }) => <MissionItem mission={item} onSelect={handleSelectMission} disabled={isSubmitting} />}
               keyExtractor={item => item.id}
               style={styles.missionList}
               contentContainerStyle={{ paddingBottom: 20 }}
@@ -128,19 +165,19 @@ const RoomMissionScreen = ({ navigation }: Props) => {
               <View style={styles.photoChoiceContainer}>
                 <Text style={styles.photoInfoText}>미션을 완료했음을 사진으로 인증해줘!</Text>
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={[styles.button, styles.photoButton]} onPress={takePhoto}>
+                  <TouchableOpacity style={[styles.button, styles.photoButton, isSubmitting && styles.disabledButton]} onPress={takePhoto} disabled={isSubmitting}>
                       <Text style={[styles.buttonText, styles.primaryButtonText]}>📸 사진 찍기</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.button, styles.photoButton]} onPress={pickImage}>
+                  <TouchableOpacity style={[styles.button, styles.photoButton, isSubmitting && styles.disabledButton]} onPress={pickImage} disabled={isSubmitting}>
                       <Text style={[styles.buttonText, styles.primaryButtonText]}>🖼️ 갤러리</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
             <TouchableOpacity
-              style={[styles.button, styles.primaryButton, styles.fullWidthButton, !imageUri && styles.disabledButton]}
+              style={[styles.button, styles.primaryButton, styles.fullWidthButton, (!imageUri || isSubmitting) && styles.disabledButton]}
               onPress={handleComplete}
-              disabled={!imageUri}
+              disabled={!imageUri || isSubmitting}
             >
               <Text style={[styles.buttonText, styles.primaryButtonText]}>완료했다!</Text>
             </TouchableOpacity>
@@ -184,7 +221,7 @@ const RoomMissionScreen = ({ navigation }: Props) => {
             </View>
           </View>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')} style={styles.homeButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')} style={styles.homeButton} disabled={isSubmitting}>
           <Text style={styles.homeButtonText}>홈으로</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -198,7 +235,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)', // To make content more readable over the background
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   mainContent: {
     flex: 1,
@@ -249,7 +286,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '90%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center', // Center content when loading
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -324,7 +361,7 @@ const styles = StyleSheet.create({
   primaryButton: { backgroundColor: COLORS.primary },
   fullWidthButton: { width: '100%', marginTop: 15 },
   photoButton: { backgroundColor: COLORS.secondary, borderWidth: 0, },
-  disabledButton: { backgroundColor: COLORS.gray },
+  disabledButton: { backgroundColor: COLORS.gray, opacity: 0.7 },
   buttonText: { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
   primaryButtonText: { color: COLORS.white },
   infoText: {
@@ -332,9 +369,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.primary,
     textAlign: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
   },
   thumbnail: {
     width: '80%',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { COLORS } from '../constants/colors';
@@ -19,10 +19,13 @@ const emotionOrder: HaruEmotion[] = ['very_shy', 'turned_away', 'relaxed_smile',
 
 
 const AdminScreen = ({ navigation }: Props) => {
-  const { softReset, hardReset, defaultHaruEmotion, setDefaultHaruEmotion, updateApiKey } = useAppState();
+  const { softReset, hardReset, haruEmotion, setHaruEmotion, updateApiKey, isAiThinking, isInitialized } = useAppState();
   const [showApiInput, setShowApiInput] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [isTestingKey, setIsTestingKey] = useState(false);
+
+  // Disable all buttons if the context is not ready or a global action is happening
+  const isBusy = isAiThinking || !isInitialized;
 
   const handleSoftReset = () => {
     Alert.alert(
@@ -65,7 +68,7 @@ const AdminScreen = ({ navigation }: Props) => {
   };
 
   const handleSetEmotion = (emotion: HaruEmotion) => {
-    setDefaultHaruEmotion(emotion);
+    setHaruEmotion(emotion);
   };
 
   const handleUpdateApiKey = () => {
@@ -99,7 +102,7 @@ const AdminScreen = ({ navigation }: Props) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-        <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()} disabled={isBusy}>
             <Text style={styles.homeButtonText}>홈으로</Text>
         </TouchableOpacity>
       <ScrollView style={styles.container}>
@@ -107,11 +110,11 @@ const AdminScreen = ({ navigation }: Props) => {
 
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>리셋 도구</Text>
-            <TouchableOpacity style={[styles.button, styles.buttonSoft]} onPress={handleSoftReset}>
-              <Text style={styles.buttonText}>리셋 (채팅 기록 삭제)</Text>
+            <TouchableOpacity style={[styles.button, styles.buttonSoft, isBusy && styles.buttonDisabled]} onPress={handleSoftReset} disabled={isBusy}>
+              {isAiThinking ? <ActivityIndicator color={COLORS.white}/> : <Text style={styles.buttonText}>리셋 (채팅 기록 삭제)</Text>}
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.buttonHard]} onPress={handleHardReset}>
-              <Text style={styles.buttonText}>하드 리셋 (전체 초기화)</Text>
+            <TouchableOpacity style={[styles.button, styles.buttonHard, isBusy && styles.buttonDisabled]} onPress={handleHardReset} disabled={isBusy}>
+              {isAiThinking ? <ActivityIndicator color={COLORS.white}/> : <Text style={styles.buttonText}>하드 리셋 (전체 초기화)</Text>}
             </TouchableOpacity>
         </View>
 
@@ -123,26 +126,25 @@ const AdminScreen = ({ navigation }: Props) => {
                   key={emotion}
                   style={[
                     styles.emotionButton,
-                    defaultHaruEmotion === emotion && styles.emotionButtonActive,
+                    haruEmotion === emotion && styles.emotionButtonActive,
+                    isBusy && styles.buttonDisabled
                   ]}
                   onPress={() => handleSetEmotion(emotion)}
+                  disabled={isBusy}
                 >
-                  <Text style={[styles.emotionButtonText, defaultHaruEmotion === emotion && styles.emotionButtonTextActive]}>
+                  <Text style={[styles.emotionButtonText, haruEmotion === emotion && styles.emotionButtonTextActive]}>
                     {emotionLabels[emotion]}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={[styles.button, {marginTop: 10}]} onPress={() => Alert.alert("완료", "기본 이미지가 적용되었습니다.")}>
-              <Text style={styles.buttonText}>적용 완료</Text>
-            </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>API 설정</Text>
             <Text style={styles.descriptionText}>현재 API 설정은 정상입니다. 일반적으로 변경할 필요가 없습니다.</Text>
             {!showApiInput && (
-              <TouchableOpacity style={[styles.button, styles.buttonWarning]} onPress={handleUpdateApiKey}>
+              <TouchableOpacity style={[styles.button, styles.buttonWarning, isBusy && styles.buttonDisabled]} onPress={handleUpdateApiKey} disabled={isBusy}>
                 <Text style={styles.buttonText}>API 키 변경하기</Text>
               </TouchableOpacity>
             )}
@@ -154,11 +156,12 @@ const AdminScreen = ({ navigation }: Props) => {
                   value={apiKey}
                   onChangeText={setApiKey}
                   secureTextEntry
+                  editable={!isTestingKey && !isBusy}
                 />
-                <TouchableOpacity style={[styles.button, { marginTop: 10 }]} onPress={handleSaveApiKey} disabled={isTestingKey}>
+                <TouchableOpacity style={[styles.button, { marginTop: 10 }, (isTestingKey || isBusy) && styles.buttonDisabled]} onPress={handleSaveApiKey} disabled={isTestingKey || isBusy}>
                   {isTestingKey ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.buttonText}>저장 및 유효성 검사</Text>}
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.buttonSoft, { marginTop: 0 }]} onPress={() => setShowApiInput(false)}>
+                <TouchableOpacity style={[styles.button, styles.buttonSoft, { marginTop: 0 }, (isTestingKey || isBusy) && styles.buttonDisabled]} onPress={() => setShowApiInput(false)} disabled={isTestingKey || isBusy}>
                   <Text style={styles.buttonText}>취소</Text>
                 </TouchableOpacity>
               </View>
@@ -191,7 +194,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    marginTop: 60, // Add margin to avoid overlap with home button
+    marginTop: 60,
   },
   header: {
     fontSize: 28,
@@ -218,6 +221,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     backgroundColor: COLORS.primary,
+  },
+  buttonDisabled: {
+    backgroundColor: COLORS.gray,
+    opacity: 0.7,
   },
   buttonSoft: {
     backgroundColor: COLORS.secondary,
@@ -276,6 +283,10 @@ const styles = StyleSheet.create({
   footer: {
       marginTop: 50,
       alignItems: 'center',
+  },
+  footerText: {
+    textDecorationLine: 'underline',
+    color: COLORS.gray,
   }
 });
 

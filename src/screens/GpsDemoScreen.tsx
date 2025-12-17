@@ -2,9 +2,8 @@
  * @file GpsDemoScreen.tsx
  * @description Displays a map with the user's location and dummy mission spots.
  * 
- * --- IMPORTANT SETUP for react-native-maps ---
- * For Android, you MUST provide a Google Maps API key.
- * Add it to your `app.json` file.
+ * @changelog
+ * - Added a defensive try/catch block around `requestForegroundPermissionsAsync` to prevent crashes on unusual devices.
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -13,7 +12,6 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  Modal,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -25,7 +23,6 @@ import { COLORS } from '../constants/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GpsDemoScreen'>;
 
-// --- TYPE DEFINITIONS ---
 type MissionMarker = {
   id: string;
   title: string;
@@ -42,20 +39,9 @@ const DEFAULT_LOCATION: Region = {
 
 const DUMMY_PLACE_TITLES = ['공원', '카페', '강변', '서점', '산책로'];
 
-// --- Helper Functions ---
-const getMissionForPlace = (placeTitle: string): string => {
-  if (placeTitle.includes('공원') || placeTitle.includes('산책로')) {
-    return '그곳에 가서 잠시 쉬기 / 벤치에 앉아 있기';
-  }
-  if (placeTitle.includes('카페') || placeTitle.includes('서점')) {
-    return '따뜻한 차 한 잔 마시거나, 좋아하는 책 구경하기';
-  }
-  return '그 주변을 천천히 걸으면서 하늘 보기';
-};
-
 const generateDummyPlaces = (currentRegion: Region): MissionMarker[] => {
     return DUMMY_PLACE_TITLES.map((title, index) => {
-        const offset = 0.01 + (index * 0.002); // Create some distance
+        const offset = 0.01 + (index * 0.002);
         return {
             id: `${title}_${index}`,
             title: title,
@@ -65,23 +51,27 @@ const generateDummyPlaces = (currentRegion: Region): MissionMarker[] => {
     });
 };
 
-// --- Main Component ---
 const GpsDemoScreen = ({ navigation }: Props) => {
   const [region, setRegion] = useState<Region | null>(null);
   const [dummyPlaces, setDummyPlaces] = useState<MissionMarker[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const mapRef = useRef<MapView>(null);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
 
   const setupLocation = async (isButtonPress: boolean = false) => {
     setErrorMsg(null);
-    let { status } = await Location.requestForegroundPermissionsAsync();
+    let status: Location.PermissionStatus;
+    try {
+      status = (await Location.requestForegroundPermissionsAsync()).status;
+    } catch(e) {
+      console.error("requestForegroundPermissionsAsync Error:", e);
+      setErrorMsg('위치 정보 권한을 요청하는 중 오류가 발생했습니다.');
+      setRegion(DEFAULT_LOCATION);
+      setDummyPlaces(generateDummyPlaces(DEFAULT_LOCATION));
+      if(isButtonPress) Alert.alert('오류', '위치 권한 요청 중 문제가 발생했습니다.');
+      return;
+    }
+
     if (status !== 'granted') {
       setErrorMsg('위치 정보 접근 권한이 거부되었습니다. 기본 위치로 표시됩니다.');
       setRegion(DEFAULT_LOCATION);
@@ -91,7 +81,7 @@ const GpsDemoScreen = ({ navigation }: Props) => {
     }
 
     try {
-        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High, timeout: 5000 });
         const newRegion = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -102,6 +92,7 @@ const GpsDemoScreen = ({ navigation }: Props) => {
         setDummyPlaces(generateDummyPlaces(newRegion));
         mapRef.current?.animateToRegion(newRegion, 1000);
     } catch(e) {
+        console.error("getCurrentPositionAsync Error:", e);
         setErrorMsg('현재 위치를 가져올 수 없습니다. 기본 위치로 표시됩니다.');
         setRegion(DEFAULT_LOCATION);
         setDummyPlaces(generateDummyPlaces(DEFAULT_LOCATION));
@@ -114,21 +105,16 @@ const GpsDemoScreen = ({ navigation }: Props) => {
   }, []);
 
   const handleMarkerPress = (place: MissionMarker) => {
-    // Defensive coding: Check if place and its properties are valid
-    if (!place || !place.id || !place.title) {
+    if (!place?.id || !place?.title) {
         Alert.alert("오류", "선택한 장소의 정보를 불러올 수 없습니다. 다시 시도해주세요.");
         return;
     }
 
     try {
-        // Navigate to the new MarkerMissionScreen
         navigation.navigate('MarkerMissionScreen', { id: place.id, title: place.title });
     } catch (e: any) {
         console.error("Navigation error to MarkerMissionScreen:", e);
-        Alert.alert(
-            "내비게이션 오류",
-            `미션 화면으로 이동할 수 없습니다: ${e.message || "알 수 없는 오류"}`
-        );
+        Alert.alert("내비게이션 오류", `미션 화면으로 이동할 수 없습니다.`);
     }
   };
 
@@ -179,7 +165,6 @@ const GpsDemoScreen = ({ navigation }: Props) => {
         <Text style={styles.homeButtonText}>홈으로 돌아가기</Text>
       </TouchableOpacity>
 
-
     </SafeAreaView>
   );
 };
@@ -220,28 +205,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   homeButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  modalView: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
-  modalText: { marginBottom: 25, textAlign: 'center', fontSize: 18, color: COLORS.primary },
-  closeButton: { backgroundColor: COLORS.secondary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 },
-  closeButtonText: { color: COLORS.primary, fontWeight: 'bold', textAlign: 'center' },
 });
 
 export default GpsDemoScreen;

@@ -2,6 +2,11 @@
  * @file src/api/gemini.ts
  * @description This file contains the function to interact with the Google Gemini API.
  * It's responsible for sending user messages to the AI and receiving responses.
+ *
+ * @changelog
+ * - Added a 15-second timeout to the fetch call to prevent indefinite hangs on poor networks.
+ * - Implemented a fallback mechanism to provide a friendly, in-character response when the API fails for any reason (timeout, server error, network loss).
+ * - Centralized error logging for easier debugging.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GEMINI_API_KEY as DEFAULT_GEMINI_API_KEY } from './config'; // Default key
@@ -9,19 +14,40 @@ import { GEMINI_API_KEY as DEFAULT_GEMINI_API_KEY } from './config'; // Default 
 const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=';
 export const API_KEY_STORAGE_KEY = 'harusali_apiKey';
 
-// Defines the emotional states Haru can have, which will map to different images.
+// Defines the emotional states Haru can have
 export type HaruEmotion =
-  | 'neutral' // 기본
-  | 'very_shy' // 부끄럽, 경계
-  | 'turned_away' // 완전 뒤돌아 있음
-  | 'relaxed_smile' // 경계가 많이 풀림, 살짝 웃음
-  | 'half_turned'; // 조금 옆모습 + 뒤돌아 있음
+  | 'neutral'
+  | 'very_shy'
+  | 'turned_away'
+  | 'relaxed_smile'
+  | 'half_turned';
 
-// Defines the structure of the response object from the AI.
+// Defines the structure of the response object from the AI
 export interface HaruResponse {
   text: string;
   state: HaruEmotion;
 }
+
+// Fallback messages for when the AI is unavailable. These sound like Haru.
+const FALLBACK_MESSAGES: HaruResponse[] = [
+  {
+    text: '...지금은 내가 잠시 다른 생각을 하고 있었나 봐. 그래도 네 얘기는 잘 들었어.',
+    state: 'half_turned',
+  },
+  {
+    text: '윽... 잠깐 숨이 막혔어. 혹시 조금만 이따가 다시 말해줄 수 있을까?',
+    state: 'very_shy',
+  },
+  {
+    text: '조금 느려졌지만 나는 여기 있어. 네가 어떤 하루를 보냈는지 궁금해.',
+    state: 'neutral',
+  },
+];
+
+// Helper to get a random fallback message
+const getRandomFallback = (): HaruResponse => {
+  return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+};
 
 const PERSONA_PROMPT = `
 너는 무기력한 청소년을 부드럽게 도와주는 캐릭터 ‘하루(Haru)’야.
@@ -51,15 +77,11 @@ JSON 객체는 'emotion'과 'response' 두 개의 키를 가져야만 해.
 }
 `;
 
-const defaultErrorResponse: HaruResponse = {
-  text: '미안, 지금은 연결이 어려운 것 같아. 잠시 후에 다시 시도해줘.',
-  state: 'neutral',
-};
-
 /**
  * Sends a message to the Gemini API and gets a response.
+ * Includes a 15-second timeout and a fallback mechanism for errors.
  * @param userMessage The message from the user.
- * @returns A promise that resolves to an object containing the bot's response text and emotion state.
+ * @returns A promise that resolves to a HaruResponse object.
  */
 export const getGeminiResponse = async (
   userMessage: string,
@@ -76,73 +98,68 @@ export const getGeminiResponse = async (
     };
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
+
   const API_URL = `${BASE_API_URL}${apiKey}`;
 
   try {
     const apiResponse = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal, // Link the abort controller
       body: JSON.stringify({
         contents: [
-          // System prompt / Persona
           { role: 'user', parts: [{ text: PERSONA_PROMPT }] },
           {
             role: 'model',
-            parts: [
-              {
-                text: JSON.stringify({
-                  emotion: 'neutral',
-                  response: '응, 알겠어! 나는 하루야. 힘든 마음이 있다면 나에게 털어놔도 괜찮아.',
-                }),
-              },
-            ],
+            parts: [{
+              text: JSON.stringify({
+                emotion: 'neutral',
+                response: '응, 알겠어! 나는 하루야. 힘든 마음이 있다면 나에게 털어놔도 괜찮아.',
+              }),
+            }],
           },
-          // User's message
           { role: 'user', parts: [{ text: userMessage }] },
         ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
+        generationConfig: { responseMimeType: 'application/json' },
       }),
     });
 
+    clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+
     if (!apiResponse.ok) {
       const errorBody = await apiResponse.text();
-      console.error('Gemini API HTTP Error:', errorBody);
-      return defaultErrorResponse;
+      console.error(`Gemini API HTTP Error: ${apiResponse.status}`, errorBody);
+      return getRandomFallback(); // Return a friendly fallback message
     }
 
     const data = await apiResponse.json();
-
-    const botResponseText = data.candidates[0]?.content?.parts[0]?.text;
+    const botResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!botResponseText) {
-      return {
-        text: '음... 뭐라고 답해야 할지 모르겠어. 다시 한 번 말해줄래?',
-        state: 'neutral',
-      };
+      console.error('Gemini API Error: Response text is missing.', data);
+      return getRandomFallback();
     }
 
-    // AI의 응답이 JSON 형식이므로 파싱합니다.
     try {
       const parsedResponse = JSON.parse(botResponseText);
-      const response: HaruResponse = {
+      return {
         text: parsedResponse.response || '...',
         state: parsedResponse.emotion || 'neutral',
       };
-      return response;
     } catch (e) {
       console.error('Failed to parse JSON response from AI:', botResponseText);
-      // AI가 JSON 형식을 지키지 않았을 경우, 텍스트만이라도 보여줍니다.
+      // If AI doesn't return valid JSON, treat the text as the response.
       return { text: botResponseText, state: 'neutral' };
     }
-  } catch (error) {
-    console.error(
-      'Failed to fetch from Gemini API. Full error object:',
-      JSON.stringify(error, null, 2),
-    );
-    return defaultErrorResponse;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('Gemini API Error: Request timed out after 15 seconds.');
+    } else {
+      console.error('Gemini API Error: Failed to fetch.', error);
+    }
+    return getRandomFallback(); // Return a friendly fallback for any error
   }
 };

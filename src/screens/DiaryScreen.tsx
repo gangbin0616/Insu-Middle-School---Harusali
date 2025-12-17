@@ -1,3 +1,10 @@
+/**
+ * @file src/screens/DiaryScreen.tsx
+ * @description Screen for viewing diary pages that unlock based on chat count.
+ * 
+ * @changelog
+ * - Added a guardrail to handle the case where PAGES_DATA might be empty, preventing a potential crash.
+ */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Image, ImageSourcePropType } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,7 +23,6 @@ interface DiaryPageData {
 
 const { width, height } = Dimensions.get('window');
 
-// --- Color Palette ---
 const PALETTE = {
     background: '#F5F3E8',
     bookCover: '#E8E5D5',
@@ -30,34 +36,42 @@ const PALETTE = {
     lockedOverlayBg: 'rgba(0,0,0,0.6)',
 };
 
-// --- Page Data (Simplified for one page per screen) ---
 const PAGES_DATA: DiaryPageData[] = [
     {
         id: 1,
         image: require('../../assets/KakaoTalk_20251215_224724985.png'),
-        lines: ['나와 하루가 처음 만난 날.', '하루가 내 이야기를 들어줬어.', '처음엔 어색했지만', '말하다 보니 조금 후련해졌다.'],
+        lines: ['오늘은 책장을 정리했다.', '아침에 일어나서 책장 앞에 섰는데,', '언제 이렇게 쌓였나 싶을 정도로 책이 많았다.', '한 권씩 꺼내서 먼지를 닦고', '다시 제자리에 넣었다.', '생각보다 시간이 오래 걸렸지만', '끝까지 해냈다. 정리된 책장을 보니 뿌듯했다.', '오랜만에 뭔가를 끝냈다는 게 좋았다.'],
         requiredChatCount: 1,
     },
     {
         id: 2,
         image: require('../../assets/KakaoTalk_20251215_224724985_01.png'),
-        lines: ['오늘은 화분에 물을 줬다.', '생각보다 재미있었어.', '작은 것도 해내니', '조금 뿌듯했다.'],
+        lines: ['오늘은 밖에 나갔다. 친구들이 산책 가자해서', '따라나섰는데, 날씨가 생각보다 좋았다.', '길가에 있는 꽃을 구경하고 물도 주었다.', '바람이 불고 구름이 떠다니는 걸 보니까', '기분이 좀 나아졌다. 친구들이 옆에서', '재잘재잘 얘기하는게 듣기 좋았다.', '오랜만에 햇살을 제대로 받은 것 같다.'],
         requiredChatCount: 2,
     },
     {
         id: 3,
         image: require('../../assets/KakaoTalk_20251216_091611135.png'),
-        lines: ['책을 정리했다.', '하루와 이야기하니까', '조금씩 움직이고 싶어진다.', '계속 이야기하고 싶어.'],
+        lines: ['오늘은 청소를 했다. 친구가 도와준다고 해서', '같이 시작했는데, 혼자였음 못 했을 것 같다.', '쓰레기 봉투를 들고 이것저것 버렸다.', '생각보다 버릴 게 많아서 놀랐다.', '친구가 옆에서 응원해줘서',  '끝까지 할 수 있었다.', '방이 깨끗해지니 내 기분도 좀 개운해졌다.'],
         requiredChatCount: 3,
     },
 ];
 
 const MAX_PAGE_INDEX = PAGES_DATA.length - 1;
 
-// --- Main Screen Component ---
+const EmptyDiaryState = () => (
+    <View style={styles.container}>
+        <Text>일기 데이터가 없어요.</Text>
+    </View>
+);
+
 const DiaryScreen = ({ navigation }: Props) => {
     const { chatCount } = useAppState();
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+    if (PAGES_DATA.length === 0) {
+        return <EmptyDiaryState />;
+    }
 
     const currentPageData = PAGES_DATA[currentPageIndex];
     const isLocked = chatCount < (currentPageData?.requiredChatCount ?? 0);
@@ -131,7 +145,6 @@ const DiaryScreen = ({ navigation }: Props) => {
     );
 };
 
-// --- Styles ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: PALETTE.background },
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -149,8 +162,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2, shadowRadius: 5, elevation: 8,
         overflow: 'hidden',
     },
-    
-    // --- Column Layout ---
     leftImageArea: {
         width: '60%',
         height: '100%',
@@ -171,20 +182,18 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 10,
         borderBottomRightRadius: 10,
     },
-
-    // --- Content Styles ---
     diaryImage: {
         width: '100%',
         height: '100%',
     },
     textLinesContainer: {
         flex: 1,
-        justifyContent: 'center', // Center lines vertically
+        justifyContent: 'center',
     },
     lineRow: {
         borderBottomWidth: 1,
         borderBottomColor: PALETTE.line,
-        height: 30, // Increased height for more spacing
+        height: 30,
         justifyContent: 'center',
     },
     lineText: {
@@ -198,8 +207,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: PALETTE.textLight,
     },
-
-    // --- Locked State ---
     lockedOverlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: PALETTE.lockedOverlayBg,
@@ -207,8 +214,6 @@ const styles = StyleSheet.create({
     },
     lockIcon: { fontSize: 50, marginBottom: 20, color: 'white' },
     lockedText: { fontSize: 18, color: 'white', fontWeight: 'bold', textAlign: 'center', lineHeight: 26 },
-    
-    // --- Navigation ---
     navButton: {
         position: 'absolute', bottom: 30, width: 50, height: 50,
         borderRadius: 25, backgroundColor: PALETTE.buttonBg,
