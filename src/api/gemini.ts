@@ -3,7 +3,9 @@
  * @description This file contains the function to interact with the Google Gemini API.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GEMINI_API_KEY as DEFAULT_GEMINI_API_KEY } from './config';
+
+// Read from Expo public environment variable
+const DEFAULT_GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
 
 // Re-declaring types here to avoid circular dependencies with context
 export type HaruEmotion =
